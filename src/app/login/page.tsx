@@ -170,6 +170,16 @@ export default function LoginPage() {
               ? "Sign In"
               : "Create Account"}
           </button>
+          {mode === "signin" && (
+  <div className="text-right mt-2">
+    <Link
+      href="/forgot-password"
+      className="text-sm text-brand hover:underline"
+    >
+      Forgot Password?
+    </Link>
+  </div>
+)}
         </form>
 
         <Link
