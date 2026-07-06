@@ -166,7 +166,14 @@ $$;
 -- ---------------------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
+declare
+  v_referred_by text;
+  v_referrer_id uuid;
+  -- Keep this in sync with REFERRAL_BONUS in src/lib/config.ts
+  v_referral_bonus integer := 50;
 begin
+  v_referred_by := new.raw_user_meta_data->>'referred_by';
+
   insert into public.profiles (id, name, email, phone, referral_code, referred_by)
   values (
     new.id,
@@ -174,9 +181,29 @@ begin
     new.email,
     coalesce(new.raw_user_meta_data->>'phone', ''),
     upper(substr(md5(new.id::text), 1, 8)),
-    new.raw_user_meta_data->>'referred_by'
+    v_referred_by
   )
   on conflict (id) do nothing;
+
+  -- Award referral bonus coins to both the new signup and whoever referred them.
+  if v_referred_by is not null and v_referred_by <> '' then
+    select id into v_referrer_id from public.profiles
+      where referral_code = v_referred_by
+      limit 1;
+
+    if v_referrer_id is not null then
+      update public.profiles set coins_balance = coins_balance + v_referral_bonus
+        where id = new.id;
+      update public.profiles set coins_balance = coins_balance + v_referral_bonus
+        where id = v_referrer_id;
+
+      insert into public.coin_transactions (user_id, coins_earned, note)
+      values (new.id, v_referral_bonus, 'Referral signup bonus');
+      insert into public.coin_transactions (user_id, coins_earned, note)
+      values (v_referrer_id, v_referral_bonus, 'Referral bonus — friend joined using your code');
+    end if;
+  end if;
+
   return new;
 end;
 $$;
@@ -185,6 +212,16 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ---------------------------------------------------------------------------
+-- FUNCTION: referral_count — number of people who signed up with a given code
+-- (security definer so a customer can see their own referral count without
+-- being granted broader read access to other users' profiles)
+-- ---------------------------------------------------------------------------
+create or replace function public.referral_count(code text)
+returns integer language sql stable security definer as $$
+  select count(*)::integer from public.profiles where referred_by = code;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- TRIGGER: log order status changes
@@ -228,6 +265,16 @@ create policy "profiles self update" on public.profiles
 drop policy if exists "profiles self insert" on public.profiles;
 create policy "profiles self insert" on public.profiles
   for insert with check (auth.uid() = id);
+-- Allow a delivery boy to see the profile of a customer whose order is assigned to them
+drop policy if exists "profiles delivery read assigned" on public.profiles;
+create policy "profiles delivery read assigned" on public.profiles
+  for select using (
+    public.is_delivery() and id in (
+      select o.user_id from public.orders o
+      join public.delivery_boys db on db.id = o.delivery_boy_id
+      where db.user_id = auth.uid()
+    )
+  );
 
 -- CATEGORIES: public read, admin write
 drop policy if exists "categories read" on public.categories;
@@ -284,6 +331,10 @@ create policy "delivery read" on public.delivery_boys
 drop policy if exists "delivery admin write" on public.delivery_boys;
 create policy "delivery admin write" on public.delivery_boys
   for all using (public.is_admin()) with check (public.is_admin());
+-- Allow a delivery boy to edit their own basic profile fields (Phase 6)
+drop policy if exists "delivery self update" on public.delivery_boys;
+create policy "delivery self update" on public.delivery_boys
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- REFUNDS: customer own + admin
 drop policy if exists "refunds read" on public.refunds;

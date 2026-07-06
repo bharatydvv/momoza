@@ -1,0 +1,35 @@
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:3030
+
+ ✓ Starting...
+ ✓ Ready in 3.8s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1115ms (127 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 8.7s (646 modules)
+ GET / 200 in 9407ms
+ ○ Compiling /checkout ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (106kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (250kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled /checkout in 12.2s (652 modules)
+ GET /checkout 200 in 12512ms
+ GET / 200 in 61ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1513ms (640 modules)
+ ✓ Compiled /checkout in 224ms (322 modules)
+ GET /checkout 200 in 945ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1532ms (647 modules)
+ GET /favicon.svg 404 in 1835ms
+ ✓ Compiled /orders in 458ms (657 modules)
+ ✓ Compiled /offers in 365ms (663 modules)
+ ⨯ ./src/lib/orders.ts
+Error: Failed to read source code from C:\Users\bhara\Downloads\momoza-project\src\lib\orders.ts
+
+Caused by:
+    The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./src/lib/orders.ts
+./src/components/TrackingBar.tsx
+./src/app/(customer)/layout.tsx
